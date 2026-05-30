@@ -26,7 +26,7 @@ with st.sidebar:
     engines = st.multiselect(
         "Engines",
         ["chatgpt", "google_serp", "perplexity", "gemini", "google_ai_mode"],
-        default=["chatgpt", "google_serp"],
+        default=["chatgpt", "google_serp", "perplexity", "gemini"],
     )
     st.divider()
     use_variation = st.toggle(
