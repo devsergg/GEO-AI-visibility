@@ -19,6 +19,9 @@ lancedb/
 # Run cache (contains raw AI responses — commit only deliberately)
 cache/
 
+# Raw API validation responses (may contain embedded third-party keys from scraped HTML)
+scripts/validate_*_raw.json
+
 # macOS
 .DS_Store
 
