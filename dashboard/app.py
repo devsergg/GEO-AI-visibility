@@ -15,7 +15,7 @@ from geo import cognee_store, sentiment as geo_sentiment, recommender as geo_rec
 
 st.set_page_config(page_title="GEO Command Center", layout="wide")
 st.title("GEO Command Center")
-st.caption("AI visibility intelligence — ChatGPT · Google AI Overview · Perplexity · Gemini")
+st.caption("AI visibility intelligence — ChatGPT · Google AI Overview · Google AI Mode · Perplexity · Gemini")
 
 # ── Sidebar: run config ─────────────────────────────────────────────────────
 with st.sidebar:
@@ -25,7 +25,7 @@ with st.sidebar:
     market = st.text_input("Market / category", value="CRM software for small businesses")
     engines = st.multiselect(
         "Engines",
-        ["chatgpt", "google_serp", "perplexity", "gemini"],
+        ["chatgpt", "google_serp", "perplexity", "gemini", "google_ai_mode"],
         default=["chatgpt", "google_serp"],
     )
     st.divider()

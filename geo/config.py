@@ -16,6 +16,7 @@ LLM_MODEL = "gpt-4o-mini"
 CHATGPT_DATASET_ID = "gd_m7aof0k82r803d5bjm"
 PERPLEXITY_DATASET_ID = os.getenv("PERPLEXITY_DATASET_ID", "")
 GEMINI_DATASET_ID = os.getenv("GEMINI_DATASET_ID", "gd_mbz66arm2mf9cu856y")
+GOOGLE_AI_MODE_DATASET_ID = os.getenv("GOOGLE_AI_MODE_DATASET_ID", "gd_mcswdt6z2elth3zqr2")
 
 BRIGHTDATA_BASE = "https://api.brightdata.com"
 POLL_INTERVAL_S = 8
