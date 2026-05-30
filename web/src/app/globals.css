@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --scrollbar-track: #161b22;
+  --scrollbar-thumb: #30363d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  background: #0d1117;
+  color: #e6edf3;
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+
+/* Smooth transitions for interactive elements */
+button,
+a {
+  transition-property: background-color, border-color, color, opacity;
+  transition-duration: 120ms;
+  transition-timing-function: ease;
+}
+
+/* Recharts tooltip override */
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+
+.recharts-default-tooltip {
+  background: #1c2128 !important;
+  border: 1px solid #30363d !important;
+  border-radius: 6px !important;
+  color: #e6edf3 !important;
+}
+
+/* Table base */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}

@@ -22,6 +22,11 @@ cache/
 # Raw API validation responses (may contain embedded third-party keys from scraped HTML)
 scripts/validate_*_raw.json
 
+# Next.js web dashboard
+web/.next/
+web/node_modules/
+web/.env.local
+
 # macOS
 .DS_Store
 
