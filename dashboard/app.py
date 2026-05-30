@@ -9,7 +9,7 @@ import streamlit as st
 import pandas as pd
 from geo.models import RunConfig
 from geo import pipeline, scorer
-from geo.variation import default_variation
+from geo.variation import generate_variation_config
 from geo import config as geo_config
 from geo import cognee_store, sentiment as geo_sentiment, recommender as geo_recommender
 from geo import company_research
@@ -68,8 +68,8 @@ with st.sidebar:
     st.divider()
     use_variation = st.toggle(
         "Input-variation engine",
-        value=bool(geo_config.OPENAI_API_KEY),
-        help="Uses gpt-4o-mini to generate varied prompts across intent × persona × framing axes.",
+        value=True,
+        help="Uses gpt-4o-mini to generate market-specific prompts across intent × persona × framing axes.",
         disabled=not geo_config.OPENAI_API_KEY,
     )
     if use_variation:
@@ -116,7 +116,7 @@ if run_live:
     competitors = [c.strip() for c in competitors_raw.splitlines() if c.strip()]
     variation_cfg = None
     if use_variation and geo_config.OPENAI_API_KEY:
-        variation_cfg = default_variation(market)
+        variation_cfg = generate_variation_config(market, target_brand)
         variation_cfg.max_prompts = max_prompts
     cfg = RunConfig(
         target_brand=target_brand,

@@ -111,8 +111,55 @@ def _dedup(prompts: list[Prompt], threshold: float = 0.82) -> list[Prompt]:
     return kept
 
 
-def default_variation(market: str) -> VariationConfig:
-    """Sensible defaults when the user doesn't specify axes."""
+def generate_variation_config(market: str, brand: str) -> VariationConfig:
+    """
+    Ask gpt-4o-mini to produce market-specific intents, personas, and framings.
+    Falls back to defaults if the call fails.
+    """
+    try:
+        prompt = (
+            f'Market category: "{market}"\n'
+            f'Brand being audited: "{brand}"\n\n'
+            "Return a JSON object with exactly three keys:\n"
+            '- "intents": list of 5 genuinely distinct buyer goals in this market '
+            "(specific to the category, not generic)\n"
+            '- "personas": list of 4 buyer types who evaluate products in this market '
+            "(think about who actually buys here and what their priorities differ by)\n"
+            '- "framings": list of 5 query phrasing styles a buyer would use '
+            '(e.g. "best X for Y", "compare X vs Y", "most affordable X")\n\n'
+            "Be specific to the market — avoid generic phrases like "
+            '"find the best tool" or "budget-conscious startup".'
+        )
+        response = _llm().chat.completions.create(
+            model=config.LLM_MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a market research specialist. "
+                        "Return JSON only. Be specific to the given market — "
+                        "generic buyer intents and personas are useless."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.4,
+            max_tokens=600,
+        )
+        data = json.loads(response.choices[0].message.content)
+        intents = [str(x) for x in data.get("intents", []) if x][:6]
+        personas = [str(x) for x in data.get("personas", []) if x][:5]
+        framings = [str(x) for x in data.get("framings", []) if x][:6]
+        if intents and personas and framings:
+            return VariationConfig(intents=intents, personas=personas, framings=framings, max_prompts=15, dedup=True)
+    except Exception:
+        pass
+    return _default_variation()
+
+
+def _default_variation() -> VariationConfig:
+    """Static fallback used when the LLM call in generate_variation_config fails."""
     return VariationConfig(
         intents=[
             "find the best tool for the job",
