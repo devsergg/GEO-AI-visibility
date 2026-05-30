@@ -1,0 +1,28 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Cognee / LanceDB data
+.cognee_system/
+lancedb/
+*.lance/
+
+# Run cache (contains raw AI responses — commit only deliberately)
+cache/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp

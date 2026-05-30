@@ -1,0 +1,11 @@
+aiohttp>=3.9
+requests>=2.31
+python-dotenv>=1.0
+pydantic>=2.0
+streamlit>=1.35
+fastapi>=0.111
+uvicorn>=0.29
+beautifulsoup4>=4.12
+anthropic>=0.28
+openai>=1.30
+cognee>=1.1

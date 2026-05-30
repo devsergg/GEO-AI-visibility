@@ -1,0 +1,22 @@
+{
+  "status": 400,
+  "engine": "perplexity",
+  "dataset_id": "gd_l1viktl72bvl7bjuj0",
+  "raw": {
+    "error": "Invalid input provided",
+    "code": "validation_error",
+    "type": "validation",
+    "line": "{\"url\":\"https://perplexity.com/\",\"prompt\":\"What are the best CRM tools for small businesses?\"}",
+    "index": 1,
+    "errors": [
+      [
+        "prompt",
+        "This input should not contain a prompt field"
+      ],
+      [
+        "url",
+        "Value should match pattern .*linkedin\\.com/(?!company).*"
+      ]
+    ]
+  }
+}
