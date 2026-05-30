@@ -2,7 +2,6 @@ from .chatgpt import ChatGPTEngine
 from .google_serp import GoogleSerpEngine
 from .perplexity import PerplexityEngine
 from .gemini import GeminiEngine
-from .google_ai_mode import GoogleAiModeEngine
 from .base import BaseEngine
 
 ENGINE_REGISTRY: dict[str, type[BaseEngine]] = {
@@ -10,7 +9,6 @@ ENGINE_REGISTRY: dict[str, type[BaseEngine]] = {
     "google_serp": GoogleSerpEngine,
     "perplexity": PerplexityEngine,
     "gemini": GeminiEngine,
-    "google_ai_mode": GoogleAiModeEngine,
 }
 
 

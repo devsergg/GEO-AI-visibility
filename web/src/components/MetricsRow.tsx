@@ -26,7 +26,7 @@ export function MetricsRow({ score, respondedCount, failedCount }: MetricsRowPro
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {/* ── Visibility Score ─────────────────────────────────────────── */}
-      <div className="col-span-2 lg:col-span-1 rounded-2xl border border-border bg-canvas-subtle p-6 flex items-center gap-6 relative overflow-hidden">
+      <div className="col-span-2 lg:col-span-1 rounded-2xl border border-border bg-canvas-subtle p-4 flex items-center gap-4 relative overflow-hidden">
         {/* Ambient glow */}
         <div
           className="pointer-events-none absolute -right-8 -top-8 w-40 h-40 rounded-full opacity-10 blur-2xl"
@@ -34,18 +34,18 @@ export function MetricsRow({ score, respondedCount, failedCount }: MetricsRowPro
         />
         <GaugeRing score={score.visibility_score} color={visColor} />
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold text-fg-muted uppercase tracking-widest mb-1">
+          <p className="text-[10px] font-semibold text-fg-muted uppercase tracking-widest mb-1">
             Visibility Score
           </p>
-          <p className="text-2xl font-bold text-fg leading-none">
+          <p className="text-xl font-bold text-fg leading-none">
             {score.visibility_score}
-            <span className="text-base font-normal text-fg-muted">/100</span>
+            <span className="text-sm font-normal text-fg-muted">/100</span>
           </p>
-          <p className="mt-2 text-xs font-semibold" style={{ color: visColor }}>
+          <p className="mt-1.5 text-xs font-semibold" style={{ color: visColor }}>
             {visLabel}
           </p>
-          <p className="mt-1 text-[11px] text-fg-subtle leading-relaxed">
-            {score.components.mention_count} of {score.components.total_responses} responses mentioned your brand
+          <p className="mt-1 text-[10px] text-fg-subtle leading-snug">
+            {score.components.mention_count}/{score.components.total_responses} responses mentioned brand
           </p>
         </div>
       </div>
@@ -124,7 +124,7 @@ function GaugeRing({ score, color }: { score: number; color: string }) {
   const filled = (score / 100) * GAUGE_ARC;
 
   return (
-    <div className="relative shrink-0 w-24 h-24">
+    <div className="relative shrink-0 w-[72px] h-[72px]">
       <svg
         viewBox="0 0 100 100"
         className="w-full h-full"
@@ -156,7 +156,7 @@ function GaugeRing({ score, color }: { score: number; color: string }) {
       {/* Center label */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span
-          className="text-3xl font-bold font-mono leading-none tabular-nums"
+          className="text-2xl font-bold font-mono leading-none tabular-nums"
           style={{ color }}
         >
           {score}

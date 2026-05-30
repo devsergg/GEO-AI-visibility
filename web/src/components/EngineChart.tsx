@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { engineLabel, scoreColor } from "@/lib/utils";
+import { engineLabel, engineColor, scoreColor } from "@/lib/utils";
 import type { ScoreResult } from "@/lib/types";
 
 interface EngineChartProps {
@@ -62,10 +62,10 @@ export function EngineChart({ score }: EngineChartProps) {
             cursor={{ fill: "rgba(255,255,255,0.04)" }}
             content={({ active, payload }) => {
               if (!active || !payload?.length) return null;
-              const d = payload[0].payload as { engine: string; score: number };
+              const d = payload[0].payload as { engine: string; score: number; raw: string };
               return (
                 <div className="rounded-md border border-border bg-canvas-subtle px-3 py-2 text-xs shadow-lg">
-                  <p className="font-medium text-fg">{d.engine}</p>
+                  <p className="font-medium" style={{ color: engineColor(d.raw) }}>{d.engine}</p>
                   <p className="text-fg-muted mt-0.5">
                     Score:{" "}
                     <span
@@ -84,7 +84,7 @@ export function EngineChart({ score }: EngineChartProps) {
             {data.map((entry) => (
               <Cell
                 key={entry.raw}
-                fill={scoreColor(entry.score)}
+                fill={engineColor(entry.raw)}
                 fillOpacity={0.85}
               />
             ))}

@@ -10,11 +10,21 @@ export const ENGINE_LABELS: Record<string, string> = {
   google_serp: "Google AI Overview",
   perplexity: "Perplexity",
   gemini: "Gemini",
-  google_ai_mode: "Google AI Mode",
 };
 
 export function engineLabel(engine: string): string {
   return ENGINE_LABELS[engine] ?? engine;
+}
+
+export const ENGINE_COLORS: Record<string, string> = {
+  chatgpt: "#10a37f",    // OpenAI green
+  perplexity: "#20b2c8", // Perplexity teal
+  google_serp: "#4285f4", // Google blue
+  gemini: "#a855f7",     // Gemini violet
+};
+
+export function engineColor(engine: string): string {
+  return ENGINE_COLORS[engine] ?? "#8b949e";
 }
 
 export const ALL_ENGINES = [
@@ -22,7 +32,6 @@ export const ALL_ENGINES = [
   "google_serp",
   "perplexity",
   "gemini",
-  "google_ai_mode",
 ];
 
 export function scoreColor(score: number): string {

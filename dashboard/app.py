@@ -16,7 +16,7 @@ from geo import company_research
 
 st.set_page_config(page_title="GEO Command Center", layout="wide")
 st.title("GEO Command Center")
-st.caption("AI visibility intelligence — ChatGPT · Google AI Overview · Google AI Mode · Perplexity · Gemini")
+st.caption("AI visibility intelligence — ChatGPT · Google AI Overview · Perplexity · Gemini")
 
 # ── Session state defaults for sidebar inputs ────────────────────────────────
 if "brand_input" not in st.session_state:
@@ -62,7 +62,7 @@ with st.sidebar:
     market = st.text_input("Market / category", key="market_input")
     engines = st.multiselect(
         "Engines",
-        ["chatgpt", "google_serp", "perplexity", "gemini", "google_ai_mode"],
+        ["chatgpt", "google_serp", "perplexity", "gemini"],
         default=["chatgpt", "google_serp", "perplexity", "gemini"],
     )
     st.divider()
