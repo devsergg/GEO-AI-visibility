@@ -12,9 +12,10 @@ OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 # Cost-efficient model for variation generation, sentiment, recommendations
 LLM_MODEL = "gpt-4o-mini"
 
-# Bright Data dataset IDs — verified 2026-05-28
+# Bright Data dataset IDs — verified 2026-05-28/29
 CHATGPT_DATASET_ID = "gd_m7aof0k82r803d5bjm"
-PERPLEXITY_DATASET_ID = os.getenv("PERPLEXITY_DATASET_ID", "")  # set once found
+PERPLEXITY_DATASET_ID = os.getenv("PERPLEXITY_DATASET_ID", "")
+GEMINI_DATASET_ID = os.getenv("GEMINI_DATASET_ID", "gd_mbz66arm2mf9cu856y")
 
 BRIGHTDATA_BASE = "https://api.brightdata.com"
 POLL_INTERVAL_S = 8

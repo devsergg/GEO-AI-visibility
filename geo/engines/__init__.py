@@ -1,12 +1,14 @@
 from .chatgpt import ChatGPTEngine
 from .google_serp import GoogleSerpEngine
 from .perplexity import PerplexityEngine
+from .gemini import GeminiEngine
 from .base import BaseEngine
 
 ENGINE_REGISTRY: dict[str, type[BaseEngine]] = {
     "chatgpt": ChatGPTEngine,
     "google_serp": GoogleSerpEngine,
     "perplexity": PerplexityEngine,
+    "gemini": GeminiEngine,
 }
 
 
