@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Activity, Radio } from "lucide-react";
+import { Loader2, Activity, Radio, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { MetricsRow } from "@/components/MetricsRow";
 import { ScoreFormula } from "@/components/ScoreFormula";
@@ -50,10 +50,22 @@ export default function Home() {
   const [isRunningRecs, setIsRunningRecs] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+  const [backendStatus, setBackendStatus] = useState<"checking" | "ok" | "error">("checking");
 
-  // ── Load cached run list on mount ───────────────────────────────────────────
+  // ── Backend health check + cached run list on mount ─────────────────────────
   useEffect(() => {
-    api.listRuns().then(setCachedRuns).catch(console.error);
+    const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+    fetch(`${base}/api/health`, { signal: AbortSignal.timeout(4000) })
+      .then((r) => {
+        if (r.ok) {
+          setBackendStatus("ok");
+          // Only load cached runs once we know the server is up
+          api.listRuns().then(setCachedRuns).catch(() => {});
+        } else {
+          setBackendStatus("error");
+        }
+      })
+      .catch(() => setBackendStatus("error"));
   }, []);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
@@ -204,14 +216,58 @@ export default function Home() {
             </>
           )}
           {!runData && (
-            <span className="ml-auto text-[11px] text-fg-subtle">
-              ChatGPT · Google AI Overview · Perplexity · Gemini
-            </span>
+            <>
+              <span className="ml-auto text-[11px] text-fg-subtle">
+                ChatGPT · Google AI Overview · Perplexity · Gemini
+              </span>
+              {/* Backend status pill */}
+              <span
+                className={`flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full border ${
+                  backendStatus === "ok"
+                    ? "border-accent-green/30 text-accent-green bg-accent-green/10"
+                    : backendStatus === "error"
+                    ? "border-accent-red/30 text-accent-red bg-accent-red/10"
+                    : "border-border text-fg-muted"
+                }`}
+              >
+                {backendStatus === "ok" ? (
+                  <CheckCircle2 className="w-3 h-3" />
+                ) : backendStatus === "error" ? (
+                  <AlertCircle className="w-3 h-3" />
+                ) : (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                )}
+                {backendStatus === "ok"
+                  ? "API connected"
+                  : backendStatus === "error"
+                  ? "API offline"
+                  : "Connecting…"}
+              </span>
+            </>
           )}
         </div>
 
         {/* Page content */}
         <div className="flex-1 px-6 py-6 space-y-4">
+          {/* Backend offline banner */}
+          {backendStatus === "error" && (
+            <div className="flex items-start gap-3 rounded-xl border border-accent-red/30 bg-accent-red/10 px-5 py-4">
+              <AlertCircle className="w-4 h-4 text-accent-red mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-accent-red">
+                  FastAPI backend is not running
+                </p>
+                <p className="text-xs text-fg-muted mt-1">
+                  Start it in a separate terminal, then refresh:
+                </p>
+                <pre className="mt-2 text-xs font-mono text-fg bg-canvas border border-border rounded px-3 py-2">
+                  source .venv/bin/activate{"\n"}
+                  uvicorn api.main:app --reload --port 8000
+                </pre>
+              </div>
+            </div>
+          )}
+
           {/* Running state */}
           {isRunning && (
             <div className="flex flex-col items-center justify-center py-32 gap-5">
