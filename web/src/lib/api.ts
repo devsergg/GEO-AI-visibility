@@ -78,10 +78,14 @@ export async function runRecommendations(
   );
 }
 
+export async function deleteRun(runId: string): Promise<void> {
+  await request<{ deleted: string }>(`/api/runs/${runId}`, { method: "DELETE" });
+}
+
 export async function runInsights(runId: string): Promise<InsightsResponse> {
   return request<InsightsResponse>(
     `/api/runs/${runId}/insights`,
     { method: "POST" },
-    120_000
+    360_000
   );
 }

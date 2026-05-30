@@ -29,10 +29,7 @@ app = FastAPI(title="GEO Command Center API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -199,6 +196,15 @@ async def run_recommendations(run_id: str, req: RecommendationsRequest = None):
         "recommendations": [dataclasses.asdict(r) for r in recs],
         "artifact": dataclasses.asdict(artifact) if artifact else None,
     }
+
+
+@app.delete("/api/runs/{run_id}")
+def delete_run(run_id: str):
+    path = os.path.join(geo_config.CACHE_DIR, f"{run_id}.json")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+    os.remove(path)
+    return {"deleted": run_id}
 
 
 @app.post("/api/runs/{run_id}/insights")

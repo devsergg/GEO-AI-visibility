@@ -154,6 +154,43 @@ def _first_text(results) -> str:
     return getattr(first, "text", None) or getattr(first, "content", None) or str(first)
 
 
+_CLEAN_SYSTEM = (
+    "You are a business intelligence writer. Rewrite the following raw AI-search audit "
+    "finding as clean, insightful natural language for a marketer.\n"
+    "Rules:\n"
+    "- Remove ALL technical identifiers: run IDs (e.g. run_20260530T…), prompt IDs "
+    "  (e.g. p01_47c4), engine field labels, timestamps, and any system metadata.\n"
+    "- Never reference 'this run', 'the run', or any internal ID.\n"
+    "- Keep every factual finding: brand names, source domains, counts, and patterns.\n"
+    "- Write directly to a marketer. 2–4 sentences of plain prose. No bullet points."
+)
+
+_NO_DATA = "No graph data available for this query."
+
+
+def _clean_insight_sync(raw: str, topic: str, target_brand: str) -> str:
+    """Synchronous LLM rewrite — call via asyncio.to_thread."""
+    if raw == _NO_DATA:
+        return raw
+    from openai import OpenAI
+    from . import config
+    client = OpenAI(api_key=config.OPENAI_API_KEY)
+    resp = client.chat.completions.create(
+        model=config.LLM_MODEL,
+        messages=[
+            {"role": "system", "content": _CLEAN_SYSTEM},
+            {"role": "user", "content": f"Topic: {topic}\nBrand: {target_brand}\n\nRaw finding:\n{raw}"},
+        ],
+        temperature=0.3,
+        max_tokens=220,
+    )
+    return resp.choices[0].message.content.strip()
+
+
+async def _clean(raw: str, topic: str, target_brand: str) -> str:
+    return await asyncio.to_thread(_clean_insight_sync, raw, topic, target_brand)
+
+
 async def recall_all(run_id: str, target_brand: str) -> dict[str, str]:
     """Run all 5 recall queries without re-ingesting. Use when ingest already done."""
     consideration, absence, centrality, sentiment, segments = await asyncio.gather(
@@ -162,6 +199,14 @@ async def recall_all(run_id: str, target_brand: str) -> dict[str, str]:
         recall_centrality_narrative(run_id, target_brand),
         recall_sentiment_sources(run_id, target_brand),
         recall_segment_gaps(run_id, target_brand),
+    )
+    # Rewrite all 5 in parallel — strips run IDs, prompt IDs, and field labels
+    consideration, absence, centrality, sentiment, segments = await asyncio.gather(
+        _clean(consideration, "Consideration Set", target_brand),
+        _clean(absence, "When Target Brand Is Absent", target_brand),
+        _clean(centrality, "Source Centrality", target_brand),
+        _clean(sentiment, "Sentiment & Sources", target_brand),
+        _clean(segments, "Segment Gaps", target_brand),
     )
     return {
         "consideration_set": consideration,
