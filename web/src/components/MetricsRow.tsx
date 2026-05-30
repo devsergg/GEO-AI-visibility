@@ -1,4 +1,5 @@
-import { TrendingUp, Target, CheckCircle2, XCircle } from "lucide-react";
+"use client";
+
 import { scoreColor, scoreLabel } from "@/lib/utils";
 import type { ScoreResult } from "@/lib/types";
 
@@ -8,93 +9,223 @@ interface MetricsRowProps {
   failedCount: number;
 }
 
+// ── Shared constants ─────────────────────────────────────────────────────────
+const RADIUS = 38;
+const STROKE = 9;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+// For a 270° arc gauge — the remaining 90° gap sits at the bottom
+const GAUGE_ARC = CIRCUMFERENCE * 0.75;
+
+// ── Main export ──────────────────────────────────────────────────────────────
 export function MetricsRow({ score, respondedCount, failedCount }: MetricsRowProps) {
-  const color = scoreColor(score.visibility_score);
-  const label = scoreLabel(score.visibility_score);
+  const visColor = scoreColor(score.visibility_score);
+  const visLabel = scoreLabel(score.visibility_score);
+  const total = respondedCount + failedCount;
+  const successRate = total > 0 ? (respondedCount / total) * 100 : 0;
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      {/* Visibility Score */}
-      <div className="col-span-2 lg:col-span-1 rounded-xl border border-border bg-canvas-subtle p-5 relative overflow-hidden">
+      {/* ── Visibility Score ─────────────────────────────────────────── */}
+      <div className="col-span-2 lg:col-span-1 rounded-2xl border border-border bg-canvas-subtle p-6 flex items-center gap-6 relative overflow-hidden">
+        {/* Ambient glow */}
         <div
-          className="absolute inset-0 opacity-5"
-          style={{ background: `radial-gradient(circle at 80% 50%, ${color}, transparent 70%)` }}
+          className="pointer-events-none absolute -right-8 -top-8 w-40 h-40 rounded-full opacity-10 blur-2xl"
+          style={{ background: visColor }}
         />
-        <p className="text-xs font-medium text-fg-muted uppercase tracking-wider mb-2">
-          Visibility Score
-        </p>
-        <div className="flex items-end gap-2">
-          <span
-            className="text-6xl font-bold font-mono leading-none tabular-nums"
-            style={{ color }}
-          >
+        <GaugeRing score={score.visibility_score} color={visColor} />
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold text-fg-muted uppercase tracking-widest mb-1">
+            Visibility Score
+          </p>
+          <p className="text-2xl font-bold text-fg leading-none">
             {score.visibility_score}
-          </span>
-          <span className="text-lg text-fg-muted mb-1">/100</span>
+            <span className="text-base font-normal text-fg-muted">/100</span>
+          </p>
+          <p className="mt-2 text-xs font-semibold" style={{ color: visColor }}>
+            {visLabel}
+          </p>
+          <p className="mt-1 text-[11px] text-fg-subtle leading-relaxed">
+            {score.components.mention_count} of {score.components.total_responses} responses mentioned your brand
+          </p>
         </div>
-        <p className="mt-2 text-xs font-medium" style={{ color }}>
-          {label}
-        </p>
       </div>
 
-      {/* Mention Rate */}
-      <MetricCard
-        icon={<Target className="w-4 h-4" />}
-        label="Mention Rate"
-        value={`${(score.mention_rate * 100).toFixed(0)}%`}
-        sub={`${score.components.mention_count} of ${score.components.total_responses} responses`}
-        iconColor="text-accent-blue"
-      />
+      {/* ── Mention Rate ─────────────────────────────────────────────── */}
+      <MetricPanel label="Mention Rate" accent="#58a6ff">
+        <div className="flex items-end gap-1 mb-3">
+          <span className="text-5xl font-bold font-mono leading-none tabular-nums text-fg">
+            {(score.mention_rate * 100).toFixed(0)}
+          </span>
+          <span className="text-xl text-fg-muted mb-1">%</span>
+        </div>
+        <ProgressBar value={score.mention_rate * 100} color="#58a6ff" />
+        <p className="mt-2 text-[11px] text-fg-subtle">
+          {score.components.mention_count} of {score.components.total_responses} engine responses
+        </p>
+      </MetricPanel>
 
-      {/* Responses */}
-      <MetricCard
-        icon={<CheckCircle2 className="w-4 h-4" />}
-        label="Responses"
-        value={String(respondedCount)}
-        sub="Successful engine responses"
-        iconColor="text-accent-green"
-      />
+      {/* ── Avg Position ─────────────────────────────────────────────── */}
+      <MetricPanel label="Avg Position" accent="#e3b341">
+        {score.avg_position != null ? (
+          <>
+            <div className="flex items-end gap-1 mb-3">
+              <span className="text-xl font-bold text-fg-muted leading-none">#</span>
+              <span className="text-5xl font-bold font-mono leading-none tabular-nums text-fg">
+                {score.avg_position.toFixed(1)}
+              </span>
+            </div>
+            <PositionDots position={score.avg_position} />
+            <p className="mt-2 text-[11px] text-fg-subtle">
+              When mentioned · position score {(score.components.position_score * 100).toFixed(0)}%
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="flex items-end gap-1 mb-3">
+              <span className="text-5xl font-bold font-mono leading-none text-fg-subtle">—</span>
+            </div>
+            <p className="text-[11px] text-fg-subtle">
+              Brand not mentioned in any response
+            </p>
+          </>
+        )}
+      </MetricPanel>
 
-      {/* Failed */}
-      <MetricCard
-        icon={<XCircle className="w-4 h-4" />}
-        label="Failed / Skipped"
-        value={String(failedCount)}
-        sub={failedCount === 0 ? "All engines responded" : "Check raw responses"}
-        iconColor={failedCount > 0 ? "text-accent-red" : "text-fg-subtle"}
-        valueColor={failedCount > 0 ? "text-accent-red" : undefined}
+      {/* ── Responses ────────────────────────────────────────────────── */}
+      <MetricPanel
+        label="Engine Responses"
+        accent={failedCount > 0 ? "#f85149" : "#3fb950"}
+      >
+        <div className="flex items-end gap-1.5 mb-3">
+          <span className="text-5xl font-bold font-mono leading-none tabular-nums text-fg">
+            {respondedCount}
+          </span>
+          <span className="text-xl text-fg-muted mb-1">/ {total}</span>
+        </div>
+        <ProgressBar
+          value={successRate}
+          color={failedCount > 0 ? "#f85149" : "#3fb950"}
+        />
+        <p className="mt-2 text-[11px] text-fg-subtle">
+          {failedCount === 0
+            ? "All engines responded successfully"
+            : `${failedCount} failed — see raw responses`}
+        </p>
+      </MetricPanel>
+    </div>
+  );
+}
+
+// ── GaugeRing ────────────────────────────────────────────────────────────────
+function GaugeRing({ score, color }: { score: number; color: string }) {
+  // 270° arc gauge: track shows 75% of circumference, gap sits at bottom.
+  // The filled arc is (score/100) × GAUGE_ARC.
+  // We rotate -135° so the gap aligns to the bottom centre.
+  const filled = (score / 100) * GAUGE_ARC;
+
+  return (
+    <div className="relative shrink-0 w-24 h-24">
+      <svg
+        viewBox="0 0 100 100"
+        className="w-full h-full"
+        style={{ transform: "rotate(-225deg)" }}
+      >
+        {/* Track — 270° arc */}
+        <circle
+          cx="50" cy="50" r={RADIUS}
+          fill="none"
+          stroke="#21262d"
+          strokeWidth={STROKE}
+          strokeDasharray={`${GAUGE_ARC} ${CIRCUMFERENCE}`}
+          strokeLinecap="round"
+        />
+        {/* Score fill */}
+        <circle
+          cx="50" cy="50" r={RADIUS}
+          fill="none"
+          stroke={color}
+          strokeWidth={STROKE}
+          strokeDasharray={`${filled} ${CIRCUMFERENCE}`}
+          strokeLinecap="round"
+          style={{
+            filter: `drop-shadow(0 0 5px ${color}80)`,
+            transition: "stroke-dasharray 0.6s ease",
+          }}
+        />
+      </svg>
+      {/* Center label */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span
+          className="text-3xl font-bold font-mono leading-none tabular-nums"
+          style={{ color }}
+        >
+          {score}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── ProgressBar ──────────────────────────────────────────────────────────────
+function ProgressBar({ value, color }: { value: number; color: string }) {
+  return (
+    <div className="w-full h-2 rounded-full bg-border overflow-hidden">
+      <div
+        className="h-full rounded-full"
+        style={{
+          width: `${Math.min(100, Math.max(0, value))}%`,
+          backgroundColor: color,
+          boxShadow: `0 0 6px ${color}60`,
+          transition: "width 0.5s ease",
+        }}
       />
     </div>
   );
 }
 
-function MetricCard({
-  icon,
+// ── PositionDots — shows relative position quality ───────────────────────────
+function PositionDots({ position }: { position: number }) {
+  const maxPos = 5;
+  // Lower position = better. Convert to a "quality" fill: position 1 = full, 5+ = almost empty
+  const quality = Math.max(0, 1 - (position - 1) / (maxPos - 1));
+  const filledDots = Math.round(quality * 5);
+
+  return (
+    <div className="flex gap-1">
+      {Array.from({ length: 5 }, (_, i) => (
+        <div
+          key={i}
+          className="h-1.5 flex-1 rounded-full"
+          style={{
+            backgroundColor: i < filledDots ? "#e3b341" : "#21262d",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── MetricPanel wrapper ──────────────────────────────────────────────────────
+function MetricPanel({
   label,
-  value,
-  sub,
-  iconColor,
-  valueColor,
+  accent,
+  children,
 }: {
-  icon: React.ReactNode;
   label: string;
-  value: string;
-  sub: string;
-  iconColor: string;
-  valueColor?: string;
+  accent: string;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-canvas-subtle p-5">
-      <div className={`mb-3 ${iconColor}`}>{icon}</div>
-      <p className="text-xs font-medium text-fg-muted uppercase tracking-wider mb-1.5">
+    <div className="rounded-2xl border border-border bg-canvas-subtle p-5 relative overflow-hidden">
+      {/* Subtle top accent line */}
+      <div
+        className="absolute top-0 left-5 right-5 h-px opacity-60"
+        style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }}
+      />
+      <p className="text-[11px] font-semibold text-fg-muted uppercase tracking-widest mb-3">
         {label}
       </p>
-      <p
-        className={`text-4xl font-bold font-mono leading-none tabular-nums ${valueColor ?? "text-fg"}`}
-      >
-        {value}
-      </p>
-      <p className="mt-2 text-[11px] text-fg-subtle">{sub}</p>
+      {children}
     </div>
   );
 }
