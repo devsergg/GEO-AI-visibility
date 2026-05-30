@@ -1,20 +1,20 @@
 # GEO Command Center
 
-**AI visibility intelligence for marketing teams.** Know whether — and how — your brand shows up when buyers ask generative AI engines for recommendations, then get prioritized, source-grounded actions to close the gaps.
+**AI visibility intelligence for marketing teams.** Know whether — and how — your brand shows up when buyers query generative AI engines, then get prioritized, source-grounded actions to close the gaps.
 
 Built for the [Bright Data hackathon](https://brightdata.com) — GTM Intelligence track.
 
 ![Python](https://img.shields.io/badge/python-3.12%2B-blue?logo=python)
 ![Streamlit](https://img.shields.io/badge/dashboard-Streamlit-FF4B4B?logo=streamlit)
 ![Bright Data](https://img.shields.io/badge/data-Bright%20Data-0085CA)
+![GitHub](https://img.shields.io/badge/repo-devsergg%2FGEO--AI--visibility-181717?logo=github)
 ![License](https://img.shields.io/badge/license-unspecified-lightgrey)
-<!-- TODO: add a GitHub repo URL once pushed and replace the badge links above with dynamic shields.io endpoints -->
 
 ---
 
 ## The problem
 
-Buyers increasingly ask ChatGPT or Perplexity "what's the best CRM for a small team?" instead of searching Google. Marketing teams have near-zero tooling to answer: *Are we mentioned? Who is recommended instead? What sources are the AI engines citing when they recommend competitors? Does any of this hold across different buyer types or phrasings?*
+Buyers increasingly ask ChatGPT or Perplexity "what's the best CRM for a small team?" instead of running a Google search. Marketing teams have near-zero tooling to answer: *Are we mentioned? Who is recommended instead? What sources are these AI engines citing when they recommend our competitors? Does any of this hold across different buyer types or phrasings?*
 
 Auditing this manually means querying several engines, several ways, noting the answers, finding the URLs — slow, unrepeatable, and one person's perspective.
 
@@ -22,77 +22,84 @@ Auditing this manually means querying several engines, several ways, noting the 
 
 ## What it does
 
-One run fans out a curated set of varied inputs — multiple **buyer intents, personas, and phrasings** — across AI engines in parallel, then surfaces:
+One run fans out a curated set of varied queries — across multiple **buyer intents, personas, and phrasings** — to AI engines in parallel, then surfaces:
 
 | Output | What you get |
 |---|---|
 | **Visibility score (0–100)** | Share-of-voice across all responses; broken down by engine, intent, and persona |
 | **Per-response mention table** | Which brands appeared, in what position, and whether as a recommendation |
-| **Citation-gap list** | Competitor-cited source domains ranked by *centrality* — sources that move the most queries at once |
-| **Score transparency** | Every number exposes its formula components so nothing is a black box |
-
-> **Honest scope note:** The knowledge graph layer (Cognee), sentiment-with-source-tracing, and the recommendation engine are designed and specified but not yet wired into this build. See [Roadmap](#roadmap).
+| **Citation-gap list** | Competitor-cited source domains ranked by centrality — sources that move the most queries at once |
+| **Sentiment breakdown** | Per-brand, per-engine polarity and positioning trait, traced to the citation domains that co-occur with each brand |
+| **Grounded recommendations** | 3–5 specific actions referencing actual gap domains and competitor names from the run; includes a draft content artifact |
+| **Score transparency** | Every number exposes its formula components — no opaque scoring |
 
 ---
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    subgraph Input
-        UI[Streamlit sidebar\nBrand · Competitors · Market]
-        VE[Input-variation engine\ngpt-4o-mini\nintent × persona × framing]
-    end
-
-    subgraph Pipeline["Async fan-out pipeline (geo/pipeline.py)"]
-        direction LR
-        P1[Prompt 1] & P2[Prompt 2] & PN[Prompt N]
-    end
-
-    subgraph Engines["Bright Data engines (geo/engines/)"]
-        direction TB
-        CGE[chatgpt.py\nDatasets API\ngd_m7aof0k82r803d5bjm]
-        GSE[google_serp.py\nWeb Unlocker\nai_overview.texts]
-        PXE[perplexity.py\nDatasets API\nPERPLEXITY_DATASET_ID TBD]
-    end
-
-    subgraph Process
-        PAR[parser.py\nmention detection\ncitation extraction]
-        SCR[scorer.py\nSOV formula\ncitation-gap centrality]
-    end
-
-    subgraph Storage
-        CACHE[cache/\nJSON run snapshots]
-    end
-
-    DASH[dashboard/app.py\nStreamlit single page]
-
-    UI --> VE
-    VE -->|list of Prompts| Pipeline
-    Pipeline --> CGE & GSE & PXE
-    CGE & GSE & PXE -->|raw dicts| PAR
-    PAR -->|ParsedResult list| SCR
-    SCR -->|ScoreResult + CitationGapEntry list| CACHE
-    CACHE --> DASH
-    SCR --> DASH
+```text
+Streamlit sidebar
+  (brand, competitors, market, engines)
+         |
+         v
+  Input-variation engine          geo/variation.py
+  (gpt-4o-mini — optional)        intent × persona × framing axes
+  semantic dedup (SequenceMatcher)
+         |
+         v list[Prompt]
+  ┌──────────────────────────────────────────────────┐
+  │  Async fan-out  (geo/pipeline.py)                │
+  │  asyncio.gather over (prompt × engine) pairs     │
+  └──────┬──────────┬──────────┬────────────────────┘
+         |          |          |
+         v          v          v
+  chatgpt.py   google_serp.py  perplexity.py
+  Datasets API  Web Unlocker   Datasets API
+  (poll/snap)   (SERP+AI OVW)  (poll/snap)
+         |          |          |
+         └──────────┴──────────┘
+                    |
+                    v dict (raw response)
+             geo/parser.py
+             mention detection · citation extraction
+                    |
+                    v list[ParsedResult]
+         ┌──────────┴──────────┐
+         |                     |
+         v                     v
+   geo/scorer.py         geo/cognee_store.py  (optional)
+   SOV formula           Cognee 1.1.1
+   citation-gap          local knowledge graph
+   centrality            consideration-set · absence
+         |               centrality narrative
+         |                     |
+         v                     v
+   geo/sentiment.py      geo/recommender.py
+   (gpt-4o-mini)         (gpt-4o-mini)
+   per-engine polarity   3–5 grounded recs
+   + source tracing      + draft artifact
+         |
+         v
+   cache/<run_id>.json   (every run is persisted)
+         |
+         v
+   dashboard/app.py  (Streamlit, localhost:8501)
 ```
-
-**Data flow in one sentence:** `RunConfig` → varied `Prompt` list → async fan-out across (prompt, engine) pairs → `ParsedResult` list → `ScoreResult` + `CitationGapEntry` list → Streamlit dashboard.
 
 ### Engine status
 
 | Engine | Status | Via |
 |---|---|---|
-| ChatGPT | **Working** (validated 2026-05-28) | Bright Data Datasets API (`gd_m7aof0k82r803d5bjm`) |
-| Google AI Overview | **Working** (validated 2026-05-28) | Bright Data Web Unlocker SERP + `ai_overview.texts` |
-| Perplexity | Implemented — **dataset ID needed** | Bright Data Datasets API (add `PERPLEXITY_DATASET_ID` to `.env`) |
+| ChatGPT | **Working** (validated 2026-05-28) | Bright Data Datasets API — dataset `gd_m7aof0k82r803d5bjm` |
+| Google AI Overview | **Working** (validated 2026-05-28) | Bright Data Web Unlocker SERP — `ai_overview.texts` field |
+| Perplexity | Implemented — **dataset ID needed** | Bright Data Datasets API — set `PERPLEXITY_DATASET_ID` in `.env` |
 | Grok | Not available | Blocked by X as of validation date |
 
 ---
 
 ## Visibility score — formula
 
-The score is fully transparent. Every component is exposed in the dashboard's "Score components" expander.
+The score is fully transparent. Every component is surfaced in the dashboard's "Score components" expander.
 
 ```
 mention_rate   = responses_mentioning_target / total_responded
@@ -100,7 +107,7 @@ position_score = 1 − ((avg_position − 1) / max_position)   [0..1; higher = e
 visibility_score = (mention_rate × 0.7 + position_score × 0.3) × 100
 ```
 
-Weights are shown in the `components` dict returned by `scorer.score()`. The formula is explicit by design — no opaque scoring.
+Weights (0.7 / 0.3) are exposed in the `components` dict returned by `scorer.score()`. The formula is explicit by design — no black-box scoring.
 
 ---
 
@@ -108,122 +115,194 @@ Weights are shown in the `components` dict returned by `scorer.score()`. The for
 
 ```text
 GEO analyst/
-├── geo/                        # Main Python package
+├── geo/                        # Core Python package
 │   ├── config.py               # Env loading; API tokens; dataset IDs; poll config
-│   ├── models.py               # RunConfig, Prompt, ParsedResult, ScoreResult, CitationGapEntry
-│   ├── pipeline.py             # Async fan-out orchestrator; caches results to cache/
+│   ├── models.py               # RunConfig, Prompt, ParsedResult, ScoreResult,
+│   │                           #   CitationGapEntry, BrandSentiment, Recommendation, DraftArtifact
+│   ├── pipeline.py             # Async fan-out orchestrator; cache read/write
 │   ├── parser.py               # Mention detection (regex + context window); citation extraction
 │   ├── scorer.py               # SOV formula; citation-gap centrality ranking
 │   ├── variation.py            # LLM-driven prompt generation (gpt-4o-mini) + semantic dedup
+│   ├── sentiment.py            # Per-brand, per-engine polarity + source tracing (gpt-4o-mini)
+│   ├── recommender.py          # Grounded recommendations + draft artifact (gpt-4o-mini)
+│   ├── cognee_store.py         # Cognee ingest/recall for graph insights (optional layer)
 │   └── engines/
-│       ├── base.py             # BaseEngine ABC (query / extract_text / extract_citations)
-│       ├── chatgpt.py          # Bright Data Datasets API — async poll pattern
+│       ├── base.py             # BaseEngine ABC: query / extract_text / extract_citations
+│       ├── chatgpt.py          # Bright Data Datasets API — async submit → poll → snapshot
 │       ├── google_serp.py      # Bright Data Web Unlocker — ai_overview extraction
-│       └── perplexity.py       # Bright Data Datasets API — same pattern; needs dataset ID
+│       └── perplexity.py       # Bright Data Datasets API — same pattern; needs PERPLEXITY_DATASET_ID
 ├── dashboard/
 │   └── app.py                  # Streamlit single-page dashboard
 ├── scripts/
-│   ├── validate_brightdata.py  # One-shot validation script for Bright Data scrapers
+│   ├── validate_brightdata.py  # One-shot validation script — makes one real call per scraper
+│   ├── validate_cognee.py      # Cognee integration validation
 │   ├── validate_chatgpt.json   # Captured raw ChatGPT response (verified shape)
-│   ├── validate_chatgpt_raw.json
 │   └── validate_perplexity.json
 ├── cache/                      # Auto-created; JSON run snapshots for offline replay
-├── data-contract.md            # Internal + external data shapes; external shapes are verified
-├── graph-schema.md             # Cognee knowledge graph schema (designed; not yet wired)
-├── geo-command-center-prd.md   # Full PRD
+├── data-contract.md            # Internal + external data shapes (external shapes are verified)
+├── graph-schema.md             # Cognee knowledge graph schema
+├── geo-command-center-prd.md   # Full product requirements document
 ├── requirements.txt            # Python dependencies
-└── .env                        # API keys (not committed; see Prerequisites)
+├── .env.example                # Environment variable template
+└── CLAUDE.md                   # Build instructions and guardrails
 ```
 
 ---
 
 ## Prerequisites
 
-- Python 3.12 or later
-- A [Bright Data](https://brightdata.com) account with:
-  - `BRIGHTDATA_API_TOKEN` — required to run live captures
-  - `BRIGHTDATA_ZONE` — defaults to `mcp_unlocker`
-- `OPENAI_API_KEY` — required for the input-variation engine (`gpt-4o-mini`); without it the dashboard falls back to a fixed 5-prompt set
-- `PERPLEXITY_DATASET_ID` — find in your Bright Data dashboard at `/cp/scrapers/gd_xxx`; leave blank if not using Perplexity
+- **Python 3.12+**
+- A [Bright Data](https://brightdata.com) account:
+  - `BRIGHTDATA_API_TOKEN` — required; authorizes all engine calls
+  - `BRIGHTDATA_ZONE` — defaults to `mcp_unlocker`; used for the Google SERP engine
+- **`OPENAI_API_KEY`** — required for input-variation, sentiment analysis, and recommendations (all use `gpt-4o-mini`); without it the dashboard falls back to a fixed 5-prompt set and skips sentiment/recommendations
+- **`PERPLEXITY_DATASET_ID`** — find yours in the Bright Data dashboard at `/cp/scrapers/gd_xxx`; required only if you enable the Perplexity engine
 
 ---
 
-## Installation
+## Quickstart
 
 ```bash
-# Clone the repo
-git clone <repo-url>
-cd "GEO analyst"
+# 1. Clone
+git clone https://github.com/devsergg/GEO-AI-visibility.git
+cd GEO-AI-visibility
 
-# Create and activate a virtual environment
+# 2. Create and activate a virtual environment
 python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
 
-# Install dependencies
+# 3. Install dependencies
 pip install -r requirements.txt
 
-# Copy the env template and fill in your keys
-cp .env.example .env        # or create .env manually (see Prerequisites)
-```
+# 4. Configure environment
+cp .env.example .env
+# Edit .env and fill in BRIGHTDATA_API_TOKEN and OPENAI_API_KEY at minimum
 
-> Note: there is no `.env.example` in the repo yet. Create `.env` manually with the keys listed in Prerequisites. <!-- TODO: add .env.example -->
+# 5. (Optional) Validate Bright Data connections before running
+python scripts/validate_brightdata.py
 
----
-
-## Running the dashboard
-
-```bash
+# 6. Launch the dashboard
 streamlit run dashboard/app.py
 ```
 
-The dashboard opens at `http://localhost:8501`. From the sidebar:
-
-1. Enter your **target brand**, **competitors** (one per line), and **market/category**.
-2. Select which engines to query.
-3. Toggle **Input-variation engine** on if you have an `OPENAI_API_KEY` — this generates varied prompts across intent × persona × framing axes and de-duplicates near-paraphrases before sending them to Bright Data.
-4. Click **Run Live Analysis** — the pipeline fans out all (prompt, engine) pairs concurrently and streams results into the dashboard.
-5. Alternatively, **load a cached run** from the sidebar to replay offline without consuming Bright Data quota.
-
-> **Budget note:** each (prompt × engine) is one Bright Data request. A 10-prompt × 2-engine run = 20 requests against your 5,000/month free tier.
+The dashboard opens at `http://localhost:8501`.
 
 ---
 
-## Validating Bright Data integrations
+## Using the dashboard
 
-Before a live run or after changing API credentials:
+1. **Sidebar — Run Configuration:** enter your target brand, competitors (one per line), and market/category. Select which engines to query.
+2. **Input-variation engine:** toggle on if you have `OPENAI_API_KEY`. Generates varied prompts across intent × persona × framing axes and drops near-paraphrases (similarity > 0.82) before sending to Bright Data. Without the key, a fixed 5-prompt set is used.
+3. **Run Live Analysis:** fans out all (prompt, engine) pairs concurrently via `asyncio.gather`. Results are cached automatically to `cache/<run_id>.json`.
+4. **Load a cached run:** replay any previous run from the sidebar without consuming Bright Data quota.
+5. **Run Graph Analysis:** ingests the run's responses into a local Cognee knowledge graph and returns narrative answers for consideration-set, source centrality, and segment gaps (~45s first time; ~15s for recall-only re-runs).
+6. **Run Sentiment Analysis:** one `gpt-4o-mini` call per engine group extracts per-brand polarity and the citation domains co-occurring with each brand's mentions.
+7. **Generate Recommendations:** one `gpt-4o-mini` call grounded in citation-gap data, sentiment findings, and segment gaps. Returns 3–5 prioritized recommendations citing specific domains and competitors, plus a draft content artifact.
+
+> **Budget note:** each (prompt × engine) is one Bright Data request. A 10-prompt × 2-engine run = 20 requests against your 5,000/month free tier. Cache aggressively during development.
+
+---
+
+## Module reference
+
+| Module | Role |
+|---|---|
+| `geo/config.py` | Reads env vars via `python-dotenv`; hardcodes `LLM_MODEL = "gpt-4o-mini"` and `CHATGPT_DATASET_ID`; exposes poll timing constants |
+| `geo/models.py` | Pure Python dataclasses: `RunConfig`, `Prompt`, `ParsedResult`, `ScoreResult`, `CitationGapEntry`, `BrandSentiment`, `Recommendation`, `DraftArtifact` |
+| `geo/pipeline.py` | `run(cfg)` → `list[ParsedResult]`; `run_with_insights()` also ingests to Cognee; `load_cached()` / `list_cached_runs()` for offline replay |
+| `geo/parser.py` | Regex + context-window mention detection; citation extraction from engine-specific fields |
+| `geo/scorer.py` | `score()` → `ScoreResult` with transparent components dict; `citation_gap()` → centrality-ranked `CitationGapEntry` list |
+| `geo/variation.py` | `generate()` → `list[Prompt]` via one `gpt-4o-mini` call; `_dedup()` drops near-paraphrases via `difflib.SequenceMatcher`; `default_variation()` provides sensible axes |
+| `geo/sentiment.py` | `analyze()` → `list[BrandSentiment]`; one `gpt-4o-mini` call per engine group, all in parallel via `asyncio.gather` |
+| `geo/recommender.py` | `recommend()` → `(list[Recommendation], DraftArtifact)`; prompt is assembled from citation-gap data, sentiment, score components, and optional Cognee segment narrative |
+| `geo/cognee_store.py` | `run_all_insights()` ingests parsed results and recalls consideration-set, absence explanation, centrality narrative, and sentiment-source narrative |
+| `geo/engines/chatgpt.py` | Submit → poll `/datasets/v3/progress` → download snapshot; reads `answer_text` and `search_sources` + `references` |
+| `geo/engines/google_serp.py` | Web Unlocker POST → parse `ai_overview.texts[].snippet` and `ai_overview.texts[].links` |
+| `geo/engines/perplexity.py` | Same submit/poll/snapshot pattern; reads `citations` and `sources` arrays |
+
+---
+
+## Environment variables
+
+All variables are read from `.env` via `python-dotenv`. See `.env.example` for the full template.
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `BRIGHTDATA_API_TOKEN` | Yes | — | Authorizes all Bright Data API calls |
+| `BRIGHTDATA_ZONE` | No | `mcp_unlocker` | Zone name for the Web Unlocker (Google SERP engine) |
+| `PERPLEXITY_DATASET_ID` | Only for Perplexity engine | — | Scraper dataset ID from Bright Data dashboard |
+| `OPENAI_API_KEY` | No* | — | Required for variation, sentiment, and recommendations; falls back to fixed prompts without it |
+| `ANTHROPIC_API_KEY` | No | — | Optional; not used in current pipeline |
+| `AIML_API_KEY` | No | — | Optional alternative LLM provider |
+| `LLM_API_KEY` | No | — | Same value as `OPENAI_API_KEY`; Cognee reads this key separately |
+| `ENABLE_BACKEND_ACCESS_CONTROL` | No | `false` | Cognee setting; leave false for local use |
+| `VECTOR_DB_SUBPROCESS_ENABLED` | No | `false` | Required for Streamlit compatibility with Cognee |
+| `GRAPH_DATABASE_SUBPROCESS_ENABLED` | No | `false` | Required for Streamlit compatibility with Cognee |
+
+*Without `OPENAI_API_KEY` the dashboard runs with a fixed 5-prompt set and disables sentiment analysis and recommendations.
+
+---
+
+## Validating integrations
+
+Before a live run or after changing credentials:
 
 ```bash
 python scripts/validate_brightdata.py
 ```
 
-This makes one real call per configured scraper, prints the HTTP status and first 2 KB of the response, and saves the full raw JSON to `scripts/validate_<engine>.json`. Use those files to confirm the data shapes before running the full pipeline.
+Makes one real call per configured scraper, prints HTTP status and first 2 KB of the response, and writes the full raw JSON to `scripts/validate_<engine>.json`. Use those files to confirm response shapes before running the full pipeline.
 
 ---
 
-## Key design decisions
+## Build sequence and status
 
-**Input variation is breadth of perspective, not temporal drift.** A varied-input run answers "how visible am I across the different ways buyers ask, right now." Temporal drift — how visibility changes over time — requires runs separated by real elapsed time. These are explicitly kept separate in code and in the dashboard output.
+Steps are ordered by priority — this is also the cut order if time runs short.
 
-**Graceful degradation.** If an engine call fails, `responded=False` is set on that `ParsedResult` and the run continues. The dashboard shows failed/skipped counts and the errors are surfaced in an expander.
-
-**All ranking is explicit.** Centrality score = `competitor_count × engine_count` (with intent dimension to be added when Cognee is wired). The components dict exposes the inputs to the score formula. There is no opaque ranking.
-
-**Cache-first development.** Every run is written to `cache/<run_id>.json`. Load cached runs from the sidebar to iterate on the dashboard without consuming API quota.
+| Step | What | Status |
+|---|---|---|
+| 1 | **Bright Data pipeline** — async fan-out, raw response capture, cache | Done — ChatGPT and Google AI Overview validated; Perplexity needs dataset ID |
+| 2 | **Share-of-voice scoring** — transparent formula, component exposure | Done |
+| 3 | **Citation-gap analysis** — competitor-cited sources, centrality ranking | Done |
+| 4 | **Streamlit dashboard** — wires steps 1–3 together | Done |
+| 5 | **Input-variation engine** — intent × persona × framing axes, semantic dedup | Done |
+| 6 | **Cognee knowledge graph layer** — ingest, consideration-set, segment gaps | Done |
+| 7 | **Sentiment with source tracing** | Done |
+| 8 | **Recommendation engine** — grounded recs + draft artifact | Done |
+| 9 | **Stretch: Google AI Overview as first-class 4th engine** | Engine built and validated; dashboard integration pending |
 
 ---
 
-## Roadmap
+## Honesty constraints
 
-These items are designed and specified in the PRD and data contracts but not yet built:
+These are product requirements, not suggestions. They are encoded in the scoring formulas, the dashboard copy, and the LLM system prompts.
 
-- **Cognee knowledge graph layer** — write brands, sources, prompts, engines, and sentiment associations to a persistent graph; query for centrality, consideration-set, and sentiment-to-source traces across a full varied-input run
-- **Consideration-set mapping** — surface which competitors engines group together and whether the target brand is inside or outside the dominant cluster
-- **Sentiment with source tracing** — extract positive/negative associations per brand and link each back to the citing source
-- **Recommendation engine** — per-gap recommendations grounded in graph centrality; at least one draft artifact (blog outline or short post structured for AI extractability)
-- **FastAPI backend** — wrap the pipeline as a proper REST service; currently the pipeline is invoked directly from the Streamlit app
-- **Perplexity dataset ID** — validate the Perplexity scraper dataset ID in Bright Data and set `PERPLEXITY_DATASET_ID` in `.env`
-- **Temporal drift queries** — cross-run comparisons over real elapsed time (architecturally supported via run timestamps; not demoable in a single sitting)
-- **Google AI Overview stretch goal** — the `google_serp` engine is already built and validated; this item is about surfacing it as a first-class fourth engine in the dashboard once the three-engine core is solid
+**Input variation is not temporal drift.** A varied-input run answers "how visible am I across the different ways buyers ask, right now." Temporal drift — how visibility changes over time — requires runs separated by real elapsed time. These are kept separate in code and in the dashboard output.
+
+**Thin-data rankings are flagged, not asserted.** Graph centrality and consideration-set rankings gain reliability with data volume. A single run produces signals, not settled strategic fact. The UI does not present them as such.
+
+**The score formula is always visible.** Every dashboard metric exposes its formula components in an expander. There is no opaque number.
+
+**Recommendations are grounded in the run's data.** The recommender's system prompt explicitly prohibits generic marketing advice and requires citing specific domain names, competitor names, or engine names from the actual run.
+
+---
+
+## Scoped out (not in MVP)
+
+- No autonomous publishing or CMS editing — artifacts are for human review only
+- No Grok engine — blocked by X as of validation date
+- No fabricated temporal drift — trend data requires real elapsed time between runs
+- No agent framework (LangChain, CrewAI) — the pipeline is a plain `asyncio.gather` fan-out
+- No auth, billing, or multi-tenancy
+
+---
+
+## Demo safety checklist
+
+- [ ] Pre-run a full varied-input run and verify the cache file exists before going live
+- [ ] Choose a brand in a category the engines have substantive opinions about — validate a test query manually first
+- [ ] Count `max_prompts × len(engines)` and confirm it fits your remaining Bright Data free-tier budget
+- [ ] Set `VECTOR_DB_SUBPROCESS_ENABLED=false` and `GRAPH_DATABASE_SUBPROCESS_ENABLED=false` in `.env` if running from Streamlit
 
 ---
 
@@ -234,13 +313,12 @@ These items are designed and specified in the PRD and data contracts but not yet
 | Backend | Python 3.12, asyncio, aiohttp |
 | Dashboard | Streamlit |
 | AI engine access | Bright Data (Datasets API + Web Unlocker) |
-| Input variation | OpenAI `gpt-4o-mini` via `openai` SDK |
-| Data shapes | Pydantic v2 + Python dataclasses |
-| LLM inference (planned) | Anthropic API / AI/ML API |
+| Input variation / sentiment / recommendations | OpenAI `gpt-4o-mini` via `openai` SDK |
+| Knowledge graph | Cognee 1.1.1 (local, no cloud subscription) |
+| Data shapes | Python dataclasses + Pydantic v2 |
 
 ---
 
 ## License
 
-<!-- TODO: no LICENSE file is present in the repo. Add one and update this section. -->
-License not yet specified.
+No LICENSE file is present in the repository. License terms are unspecified.
