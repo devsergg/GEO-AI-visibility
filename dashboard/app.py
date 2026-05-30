@@ -12,17 +12,54 @@ from geo import pipeline, scorer
 from geo.variation import default_variation
 from geo import config as geo_config
 from geo import cognee_store, sentiment as geo_sentiment, recommender as geo_recommender
+from geo import company_research
 
 st.set_page_config(page_title="GEO Command Center", layout="wide")
 st.title("GEO Command Center")
 st.caption("AI visibility intelligence — ChatGPT · Google AI Overview · Google AI Mode · Perplexity · Gemini")
 
+# ── Session state defaults for sidebar inputs ────────────────────────────────
+if "brand_input" not in st.session_state:
+    st.session_state["brand_input"] = "HubSpot"
+if "competitors_input" not in st.session_state:
+    st.session_state["competitors_input"] = "Salesforce\nPipedrive\nActiveCampaign\nZoho CRM"
+if "market_input" not in st.session_state:
+    st.session_state["market_input"] = "CRM software for small businesses"
+
 # ── Sidebar: run config ─────────────────────────────────────────────────────
 with st.sidebar:
     st.header("Run Configuration")
-    target_brand = st.text_input("Target brand", value="HubSpot")
-    competitors_raw = st.text_area("Competitors (one per line)", value="Salesforce\nPipedrive\nActiveCampaign\nZoho CRM")
-    market = st.text_input("Market / category", value="CRM software for small businesses")
+    target_brand = st.text_input("Target brand", key="brand_input")
+
+    _can_research = bool(geo_config.OPENAI_API_KEY)
+    _fields_empty = (
+        not st.session_state["competitors_input"].strip()
+        or not st.session_state["market_input"].strip()
+    )
+    research_clicked = st.button(
+        "🔍 Research Company",
+        use_container_width=True,
+        disabled=not _can_research or not st.session_state["brand_input"].strip(),
+        help=(
+            "Auto-fill market and competitors using AI."
+            if _can_research
+            else "Requires OPENAI_API_KEY."
+        ),
+        type="secondary" if not _fields_empty else "primary",
+    )
+    if research_clicked:
+        with st.spinner(f"Researching {st.session_state['brand_input']}…"):
+            _res = asyncio.run(
+                company_research.research_company(st.session_state["brand_input"])
+            )
+        if _res["market"]:
+            st.session_state["market_input"] = _res["market"]
+        if _res["competitors"]:
+            st.session_state["competitors_input"] = "\n".join(_res["competitors"])
+        st.rerun()
+
+    competitors_raw = st.text_area("Competitors (one per line)", key="competitors_input")
+    market = st.text_input("Market / category", key="market_input")
     engines = st.multiselect(
         "Engines",
         ["chatgpt", "google_serp", "perplexity", "gemini", "google_ai_mode"],
